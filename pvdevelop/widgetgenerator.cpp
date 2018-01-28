@@ -47,6 +47,14 @@ static int isConstructor = 1;
 
 QWidget *theroot;
 
+QString to_cname(QString orig)
+{
+	QString repl = QString(orig);
+	repl.replace(QString("."), QString("__"));
+	return repl;
+}
+
+
 QWidget *findChild(const char *item) // Yes I know: It's a dirty hack                                                    // because of MSDEV 6.0 :-)
 {
   //printf("findChild(%s)\n",item);
@@ -54,6 +62,7 @@ QWidget *findChild(const char *item) // Yes I know: It's a dirty hack           
 #ifdef PVWIN32
 #if QT_VERSION < 0x050000    
   QString txt = item;
+  // txt.replace(QString("."), QString("__"));
   ret = qFindChild<QWidget *>(theroot, txt);
 #else
   ret = theroot->findChild<QWidget *>(item);
@@ -252,13 +261,14 @@ static int generateWidgetEnum(FILE *fout, QWidget *root, int type=isEnum)
       }
       else
       {
+        QString name = QString(widget->objectName());
         if(type == isName)
         {
-          fprintf(fout,"  \"%s\",\n",(const char *) widget->objectName().toUtf8());
+          fprintf(fout,"  \"%s\",\n",(const char *) name.toUtf8());
         }
         else
         {
-          fprintf(fout,"  %s,\n",(const char *) widget->objectName().toUtf8());
+          fprintf(fout,"  %s,\n",(const char *) to_cname(name).toUtf8());
         }
       }
     }
@@ -455,13 +465,18 @@ static int generateDefineMaskWidget(FILE *fout, QWidget *widget, const char *tab
   h = widget->height();
   strcpy(itemname,"error: too long");
   strcpy(parentname,"error: too long");
-  if(strlen(widget->objectName().toUtf8()) < (sizeof(itemname)-1))
-    strcpy(itemname,widget->objectName().toUtf8());
-  if(strlen(widget->parent()->objectName().toUtf8()) < (sizeof(parentname)-1))
+
+	QString iname = to_cname(widget->objectName());
+	QString pname = to_cname(widget->parent()->objectName());
+
+  if(strlen(iname.toUtf8()) < (sizeof(itemname)-1))
+    strcpy(itemname,iname.toUtf8());
+	
+  if(strlen(pname.toUtf8()) < (sizeof(parentname)-1))
     strcpy(parentname,widget->parent()->objectName().toUtf8());
   // get properties end ####################################################
 
-  if(opt_develop.arg_debug) printf("generateDefineMaskWidget(%s,%s)\n",(const char *) type.toUtf8(), (const char *) widget->objectName().toUtf8());
+  if(opt_develop.arg_debug) printf("generateDefineMaskWidget(%s,%s)\n",(const char *) type.toUtf8(), (const char *) iname.toUtf8());
 
   if     (type == "TQWidget")
   {
@@ -474,8 +489,8 @@ static int generateDefineMaskWidget(FILE *fout, QWidget *widget, const char *tab
     {
       QTabWidget *tab = (QTabWidget *) grandpa;
       QString txt = tab->tabText(tab->indexOf(widget));
-      fprintf(fout,"%spvQWidget(p,%s,%s)%s\n",prefix,itemname,(const char *) tab->objectName().toUtf8(),postfix);
-      fprintf(fout,"%spvAddTab(p,%s,%s,%s)%s\n",prefix,(const char *) tab->objectName().toUtf8() ,itemname,quote(txt),postfix);
+      fprintf(fout,"%spvQWidget(p,%s,%s)%s\n",prefix,itemname,(const char *) to_cname(tab->objectName()).toUtf8(),postfix);
+      fprintf(fout,"%spvAddTab(p,%s,%s,%s)%s\n",prefix,(const char *) to_cname(tab->objectName()).toUtf8() ,itemname,quote(txt),postfix);
     }
     else if(grandpa_parent != NULL && grandpa_parent->statusTip().startsWith("TQToolBox:"))
     {
@@ -1212,17 +1227,23 @@ static int generateDefineMaskWidgets(FILE *fout, QWidget *root)
   {
     item = strlist.at(i);
     widget = findChild(item.toUtf8()); //root->findChild<QWidget *>(item);
+
+	QString orig = QString(widget->objectName());
+	QString repl = widget->objectName();
+	repl.replace(QString("."), QString("__"));
+	const char *name = repl.toUtf8();
+
     if(widget->statusTip().startsWith("TQTabWidget:"))
     {
-      strcpy(tabparentname,(const char *) widget->objectName().toUtf8());
+      strcpy(tabparentname,(const char *) name);
     }
     if(widget->statusTip().startsWith("TQToolBox:"))
     {
-      strcpy(tabparentname,(const char *) widget->objectName().toUtf8());
+      strcpy(tabparentname,(const char *) name);
     }
     if(widget->statusTip().startsWith("TQWidget:"))
     {
-      if(opt_develop.arg_debug) printf("tabparentname0=%s\n",(const char *) widget->objectName().toUtf8());
+      if(opt_develop.arg_debug) printf("tabparentname0=%s\n",(const char *) name);
       QWidget *p = (QWidget *) widget->parent();
       if(p != NULL)
       {
