@@ -188,7 +188,7 @@ static int generateLayoutConstuctors(FILE *fout)
     txt.remove("\n");
     if(txt.contains("pvQLayout") && txt.contains("(") && txt.contains(")"))
     {
-      fprintf(fout,"  %s\n",(const char *) txt.toUtf8().constData());
+      fprintf(fout,"  %s\n",(const char *) txt.toUtf8().data());
       fprintf(fout,"\n");
     }
     line = line.next();
@@ -210,7 +210,7 @@ static int generateLayoutDefinition(FILE *fout)
     txt.remove("\n");
     if(txt.contains("pvAdd") && txt.contains("(") && txt.contains(")"))
     {
-      fprintf(fout,"  %s\n",(const char *) txt.toUtf8().constData());
+      fprintf(fout,"  %s\n",(const char *) txt.toUtf8().data());
     }
     line = line.next();
   }
@@ -298,7 +298,7 @@ static int generateWidgetEnum(FILE *fout, QWidget *root, int type=isEnum)
         else if(txt.length() < (int) (sizeof(buf)-1))
         {
           char *start, *end;
-          strcpy(buf,txt.toUtf8().constData());
+          strcpy(buf,txt.toUtf8().data());
           start = strchr(buf,',');
           if(start != NULL)
           {
@@ -322,7 +322,7 @@ static int generateWidgetEnum(FILE *fout, QWidget *root, int type=isEnum)
             }
           }
         }
-        else printf("too long layout string: %s\n",(const char *) txt.toUtf8().constData());
+        else printf("too long layout string: %s\n",(const char *) txt.toUtf8().data());
       }
       line = line.next();
     }
@@ -358,8 +358,14 @@ static const char *quote0(QString &text)
   static char buf[1024];
   int i;
 
+  int  datasize = strlen(text.toUtf8());
+  char data[datasize+1];
+  strncpy(data,text.toUtf8().data(),datasize);
+  data[datasize] = '\0';
+  cptr = data;
+
   i = 0; // convert to utf8 and quote '"' and '\n'
-  cptr = text.toUtf8().constData();
+  //cptr = text.toUtf8().data();
   while(*cptr != '\0' && i < (int) (sizeof(buf)-2))
   {
     if     (*cptr == '\"')
@@ -388,8 +394,14 @@ static const char *quote(QString &text)
   static char buf[1024],buf2[1048];
   int i;
 
+  int  datasize = strlen(text.toUtf8());
+  char data[datasize+1];
+  strncpy(data,text.toUtf8().data(),datasize);
+  data[datasize] = '\0';
+  cptr = data;
+
   i = 0; // convert to utf8 and quote '"' and '\n'
-  cptr = text.toUtf8().constData();
+  //cptr = text.toUtf8().data();
   while(*cptr != '\0' && i < (int) (sizeof(buf)-2))
   {
     if     (*cptr == '\"')
@@ -1294,7 +1306,7 @@ static int generateDefineMaskWidgets(FILE *fout, QWidget *root)
   for(int i=0; i<tablist.size(); i++)
   {
     QString item = tablist.at(i);
-    fprintf(fout,"%s",(const char *) item.toUtf8().constData());
+    fprintf(fout,"%s",(const char *) item.toUtf8().data());
   }
 
   if(opt_develop.script == PV_LUA)
@@ -1305,6 +1317,31 @@ static int generateDefineMaskWidgets(FILE *fout, QWidget *root)
     fprintf(fout,"  return 0;\n");
     fprintf(fout,"}\n");
     fprintf(fout,"\n");
+  }
+  return 0;
+}
+
+int drawDrawWidgets(QWidget *root)
+{
+  QString item;
+  QWidget *widget;
+  getStrList(root);
+  // loop over widgets
+  for(int i=0; i<strlist.size(); i++)
+  {
+    item = strlist.at(i);
+    widget = findChild(item.toUtf8()); //root->findChild<QWidget *>(item);
+    if(widget->statusTip().startsWith("TQDraw:"))
+    {
+      QString fname = widget->whatsThis();
+      if(!fname.isEmpty())
+      {
+        QDrawWidget *dw = (QDrawWidget *) widget;
+        dw->beginDraw(1);
+        dw->playSVG(fname.toUtf8());
+        dw->endDraw();
+      }
+    }
   }
   return 0;
 }

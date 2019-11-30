@@ -21,7 +21,7 @@
 #ifndef PROCESSVIEWSERVER_H
 #define PROCESSVIEWSERVER_H
 
-const char pvserver_version[] = "4.8.4";
+const char pvserver_version[] = "5.1.6";
 
 // define WIN
 #ifdef _WIN32
@@ -519,6 +519,9 @@ typedef struct _PARAM_
   int   http;                            /* 0|1 talk http                      */
   FILE  *fptmp;                          /* temporary file pointer             */
   int   fhdltmp;                         /* temporary file handle              */
+  int   iclientsocket;                   /* 0 <= iclientsockert < MAX_CLIENTS index into clientsocket[] */
+  int   is_binary;                       /* 0 for text message 1 otherwise     */
+  int   button;                          /* last clicked button                */
 }PARAM;
 
 #ifndef __VMS
@@ -526,7 +529,7 @@ typedef int (*plugin_pvAccept)(PARAM *p);
 typedef int (*plugin_pvtcpsend_binary)(PARAM *p, const char *buf, int len);
 typedef int (*plugin_pvtcpreceive)(PARAM *p, char *buf, int maxlen);
 typedef int (*plugin_pvtcpreceive_binary)(PARAM *p, char *buf, int maxlen);
-typedef int (*plugin_closesocket)(int s);
+typedef int (*plugin_closesocket)(int s, PARAM *p);
 #endif
 
 #define DEFAULT_LANGUAGE 0
@@ -1601,6 +1604,7 @@ pvSetTableCheckBox()
 pvSetTableComboBox()
 pvSetTableLabel()
 pvTablePrintf()
+pvClear();
 pvSetColumnWidth()
 pvSetRowHeight()
 pvSetWordWrap()
@@ -2161,7 +2165,7 @@ For QMultiLineEdit set maxlines = value
 int pvSetValue(PARAM *p, int id, int value);
 /*! <pre>
 Clear the content of a widget.
-Allowed widgets: QListBox, QComboBox, QMultiLineEdit, QListView, QIconView
+Allowed widgets: QTable, QListBox, QComboBox, QMultiLineEdit, QListView, QIconView
 </pre> */
 int pvClear(PARAM *p, int id);
 /*! <pre>
@@ -2567,6 +2571,12 @@ int pvSaveDrawBuffer(PARAM *p, int id, const char *filename);
  *  These are the input routines
  *  @{ */
 /*! <pre>
+Request a waitpid() call on the client.
+The response is send as TEXT_MESSAGE with id=ID_MAINWINDOW.
+waitpid_response=%d
+</pre> */
+int pvWaitpid(PARAM *p);
+/*! <pre>
 Request the text from the widget. The text will arrive in an TEXT_EVENT.
 In case of a QMultiLineEdit the text will arrive in a CLIPBOARD_EVENT.
 Allowed widgets: QLabel, QPushButton, QLineEdit, QMultiLineEdit
@@ -2969,14 +2979,6 @@ int pvDownloadFileAs(PARAM *p, const char *filename, const char *newname);
 download file to temp directory of the browser
 </pre> */
 int pvDownloadFile(PARAM *p, const char *filename);
-/*! <pre>
-send http response using chunks
-</pre> */
-int pvSendHttpChunks(PARAM *p, const char *filename);
-/*! <pre>
-send http response using Content-Length
-</pre> */
-int pvSendHttpContentLength(PARAM *p, const char *filename);
 
 /*! <pre>
 Set the limit of clients the pvserver accepts from 1 ip address 
@@ -3012,6 +3014,82 @@ int pvtcpsend_binary(PARAM *p, const char *buf, int len);
 int pvtcpreceive(PARAM *p, char *buf, int maxlen);
 int pvtcpreceive_binary(PARAM *p, char *buf, int maxlen);
 
+/** @} */ // end of group
+
+/** @defgroup http http helper functions
+ *  These functions you can use to act as httpd.
+ *  It is possible to implement your pvserver to act as pvbrowser server and httpd at the same time.
+ *  Please read the manual in PDF format.
+ *
+ *  Note: You must use the -http option to start your pvserver.
+ *
+ *  ./pvs -http
+ *
+ *  This will suppress the automatic sending of pvsVersion() at pvserver startup.
+ *
+ *  The full HTTP/1.1 specification can be found here:
+ *
+ *  https://www.w3.org/Protocols/rfc2616/rfc2616.html
+ *
+ *  In future we might add more helper function based on this specification.
+ *  But you can implement helper functions at your own using.
+ *
+ *  int pvtcpsend(PARAM *p, const char *buf, int len);
+ *
+ *  int pvtcpsendstring(PARAM *p, const char *buf);
+ *
+ *  int pvtcpsend_binary(PARAM *p, const char *buf, int len);
+ *
+ *  int pvtcpreceive(PARAM *p, char *buf, int maxlen);
+ *
+ *  int pvtcpreceive_binary(PARAM *p, char *buf, int maxlen);
+ *
+ *  Your own httpd helper functions could be included within the upstream project.
+ *  Please take care that the helper functions are usefull for wide use cases.
+ *  @{ */
+/*! <pre>
+send http response using chunks
+
+Example:
+  pvtcpsendstring(p,
+    "HTTP/1.1 200 OK\n"
+    "Date: Wed, 05 Aug 2015 14:10:30 GMT\n"
+    "Server: Apache/2.2.4 (Linux/SUSE)\n"
+    "X-Powered-By: PHP/5.2.11\n"
+    "Keep-Alive: timeout=150, max=1000\n"
+    "Connection: Keep-Alive\n"
+    "Transfer-Encoding: chunked\n"
+    "Content-Type: text/html\n"
+    "\n");
+  pvSendHttpChunks(p,"test.html");
+</pre> */
+int pvSendHttpChunks(PARAM *p, const char *filename);
+/*! <pre>
+send http response using Content-Length
+
+Example: 
+  sprintf(buf,"HTTP/1.1 200 OK\n"); 
+  pvtcpsendstring(p,buf); 
+  sprintf(buf,"Server: pvserver-%s\n", pvserver_version); 
+  pvtcpsendstring(p,buf); 
+  sprintf(buf,"Keep-Alive: timeout=15, max=100\n"); 
+  pvtcpsendstring(p,buf); 
+  sprintf(buf,"Connection: Keep-Alive\n"); 
+  pvtcpsendstring(p,buf); 
+  sprintf(buf,"Content-Type: text/html\n"); 
+  pvtcpsendstring(p,buf); 
+  pvSendHttpContentLength(p,"test.html"); 
+</pre> */
+int pvSendHttpContentLength(PARAM *p, const char *filename);
+/*! <pre>
+send http response file
+default Content-Type = text/html
+</pre> */
+int pvSendHttpResponseFile(PARAM *p, const char *filename, const char *content_type="text/html");
+/*! <pre>
+send http response using HTML text.
+</pre> */
+int pvSendHttpResponse(PARAM *p, const char *html);
 /** @} */ // end of group
 
 /** @defgroup OpenGL OpenGL

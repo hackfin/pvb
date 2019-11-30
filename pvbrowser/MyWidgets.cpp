@@ -1101,6 +1101,7 @@ MyTable::MyTable(int *sock, int ident, int numRows, int numColumns, QWidget *par
   id = ident;
   wrap = 1;
   autoresize = 0;
+  is_editable = 1;
 #if QT_VERSION >= 0x040300                  
   setWordWrap(true);
 #endif
@@ -1119,6 +1120,7 @@ MyTable::MyTable(int *sock, int ident, int numRows, int numColumns, QWidget *par
   connect(this, SIGNAL(cellClicked(int,int)), SLOT(slotClicked(int,int)));
   connect(this, SIGNAL(currentCellChanged(int,int,int,int)), SLOT(slotCurrentChanged(int,int,int,int)));
   connect(this, SIGNAL(cellChanged(int,int)), SLOT(slotValueChanged(int,int)));
+  connect(this, SIGNAL(activated(QModelIndex)), SLOT(slotActivated(QModelIndex)));
 }
 
 MyTable::~MyTable()
@@ -1127,6 +1129,8 @@ MyTable::~MyTable()
 
 void MyTable::setEditable(int editable)
 {
+  if(editable) is_editable = 1;
+  else         is_editable = 0;
   for(int row=0; row<rowCount(); row++)
   {
     for(int column=0; column<columnCount(); column++)
@@ -1247,6 +1251,21 @@ char buf[80];
   tcp_send(s,buf,strlen(buf));
 }
 
+void MyTable::slotActivated(QModelIndex index)
+{
+  if(opt.arg_debug) printf("MyTable::slotActivated()\n");
+  if(is_editable) return;
+  QTableWidgetItem *tableitem = itemFromIndex(index);
+  if(tableitem == NULL)
+  {
+    tableitem = new QTableWidgetItem();
+    tableitem->setText("");
+    if(is_editable == 0) tableitem->setFlags(Qt::ItemIsEnabled); // remove editable flag
+    setItem(currentRow(),currentColumn(),tableitem);
+    if(opt.arg_debug) printf("setTableItem\n");
+  }
+}
+
 void MyTable::mousePressEvent(QMouseEvent *event)
 {
   //char buf[80];
@@ -1299,9 +1318,9 @@ void MyTable::mousePressEvent(QMouseEvent *event)
         {
           strcpy(buf, opt.view_csv);
           strcat(buf, " table.csv");
-#ifndef PVWIN32
-          strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//          strcat(buf, " &");
+//#endif
           if(strlen(opt.view_csv) >= 3) mysystem(buf);
         }  
       }  
@@ -1475,6 +1494,26 @@ void MyTable::leaveEvent(QEvent *event)
   QTableWidget::leaveEvent(event);
 }
 
+void MyTable::clear()
+{
+  for(int y=0; y<rowCount(); y++)
+  {
+    for(int x=0; x<columnCount(); x++)
+    {
+      QTableWidgetItem *tableitem = item(y,x);
+      if(tableitem == NULL)
+      {
+        tableitem = new QTableWidgetItem();
+        tableitem->setText("");
+        setItem(y,x,tableitem);
+      }
+      else
+      {
+        tableitem->setText("");
+      }
+    }
+  }
+}
 ////////////////////////////////////////////////////////////////////////////////
 MySpinBox::MySpinBox(int *sock, int ident, int minValue, int maxValue, int step, QWidget *parent, const char *name)
           :QSpinBox(parent)
@@ -1713,11 +1752,13 @@ void MyMultiLineEdit::slotSendToClipboard()
 
   QString txt = document()->toPlainText();
   int len = strlen(txt.toUtf8());
-  char text[len+1];
+  //char text[len+1]; // MSVC can't do this
+  char *text = new char[len+1];
   strcpy(text,txt.toUtf8());
   sprintf(buf,"@clipboard(%d,%d)\n", id,len);
   tcp_send(s,buf,strlen(buf));
   tcp_send(s,text,len);
+  delete [] text;
 }
 
 void MyMultiLineEdit::mousePressEvent(QMouseEvent *event)

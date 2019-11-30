@@ -15,6 +15,9 @@
 ****************************************************************************/
 #include "pvdefine.h"
 #include <stdlib.h>
+#ifndef USE_ANDROID
+#include <errno.h>
+#endif
 
 #include "opt.h"
 #include "interpreter.h"
@@ -53,6 +56,7 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #endif
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -80,6 +84,9 @@
 #define LEFT_PRINT_MARGIN  10
 #define UPPER_PRINT_MARGIN 70
 
+#ifndef USE_ANDROID
+extern int errno;
+#endif
 extern OPT opt;
 extern QString l_print_header;
 
@@ -954,7 +961,12 @@ void Interpreter::interpretc(const char *command)
     sscanf(command,"clear(%d",&i);
     if(i < 0) return;
     if(i >= nmax) return;
-    if(all[i]->type == TQListBox)
+    if(all[i]->type == TQTable)
+    {
+      MyTable *ptr = (MyTable *) all[i]->w;
+      if(ptr != NULL) ptr->clear();
+    }
+    else if(all[i]->type == TQListBox)
     {
       MyListBox *ptr = (MyListBox *) all[i]->w;
       if(ptr != NULL) ptr->clear();
@@ -1854,9 +1866,9 @@ void Interpreter::interpreth(const char *command)
     if(text[0] == '+')
     {
       QString cmd = "pvbrowser " + text.mid(1);
-#ifdef PVUNIX
-      cmd += " &";
-#endif
+//#ifdef PVUNIX
+//      cmd += " &";
+//#endif
       mysystem(cmd.toUtf8());
     }
     else
@@ -2431,9 +2443,9 @@ void Interpreter::interpretp(const char *command)
     {
       if(opt.arg_debug) printf("We run ffplay for the sound\n");
       QString cmd = "ffplay -loglevel quiet -autoexit -vn -showmode 0 -i " + text;
-#ifdef PVUNIX
-      cmd += " &";
-#endif      
+//#ifdef PVUNIX
+//      cmd += " &";
+//#endif      
       mysystem(cmd.toUtf8());
       return;
     }
@@ -3140,7 +3152,7 @@ void Interpreter::interprets(const char *command)
                   t->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
                   t->verticalHeader()->setMinimumWidth(0);
                   t->verticalHeader()->setMaximumWidth(99999);
-                  t->verticalHeader()->resizeSection(0,width);
+                  t->verticalHeader()->resizeSection(0,1); //width); ... fix for bug report from our forum OCT 2016
                   t->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
                 }
 #endif
@@ -3378,6 +3390,7 @@ void Interpreter::interprets(const char *command)
           else
           {
             QWidget *w = (QWidget *) all[i]->w;
+            if(opt.arg_debug) printf("setFont text=%s\n", (const char *) text.toUtf8());
             if(w != NULL) w->setFont(font);
           }
         }
@@ -4383,14 +4396,20 @@ void Interpreter::interprets(const char *command)
             {
               struct stat sb;
               if(stat(text.toUtf8(), &sb) < 0) return;
-              char buf[sb.st_size+1];
+              //char buf[sb.st_size+1]; // MSVC cant't do this
+              char *buf = new char[sb.st_size+1];
               FILE *fin = fopen(text.toUtf8(),"r");
-              if(fin == NULL) return;
+              if(fin == NULL)
+              {
+                delete [] buf;
+                return;
+              }
               fread(buf,1,sb.st_size,fin);
               buf[sb.st_size] = '\0';
               fclose(fin);
               QUrl url = QUrl::fromLocalFile(temp); 
               mainWindow->textbrowser->form->textBrowser->setHtml(QString::fromUtf8(buf),url);
+              delete [] buf;
             }
             else
             {
@@ -4942,8 +4961,12 @@ void Interpreter::interprets(const char *command)
                     t->updates += 2;
                     item = new QTableWidgetItem(text);
                     t->setItem(x,y,item);
+                    if(t->is_editable == 0) item->setFlags(Qt::ItemIsEnabled); // remove editable flag
                   }
-                  if(item != NULL) item->setBackgroundColor(QColor(r,g,b));
+                  if(item != NULL) 
+                  {
+                    item->setBackgroundColor(QColor(r,g,b));
+                  }
                   if(t->autoresize == 1)
                   {
                     t->resizeRowToContents(x);
@@ -5611,7 +5634,7 @@ void Interpreter::interprett(const char *command)
   if(strncmp(command,"text(",5) == 0)
   {
     QString quote;
-    char buf[MAX_PRINTF_LENGTH];
+    char buf[2*MAX_PRINTF_LENGTH];
     sscanf(command,"text(%d)",&i);
     buf[0] = '\0';
     if(i < 0)
@@ -5911,9 +5934,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[10]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_audio) >= 3) mysystem(buf);
     }  
   }
@@ -5927,9 +5950,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[10]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_video) >= 3) mysystem(buf);
     }  
   }
@@ -5943,9 +5966,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[8]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_pdf) >= 3) mysystem(buf);
     }  
   }
@@ -5959,9 +5982,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[8]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_img) >= 3) mysystem(buf);
     }  
   }
@@ -5975,9 +5998,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[8]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_svg) >= 3) mysystem(buf);
     }  
   }
@@ -5991,9 +6014,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[8]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_txt) >= 3) mysystem(buf);
     }  
   }
@@ -6007,9 +6030,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[8]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_csv) >= 3) mysystem(buf);
     }  
   }
@@ -6023,9 +6046,9 @@ void Interpreter::interpretv(const char *command)
       strcat(buf, &command[9]);
       cptr = strstr(buf,"\n");
       if(cptr != NULL) *cptr = '\0';
-#ifndef PVWIN32
-      strcat(buf, " &");
-#endif
+//#ifndef PVWIN32
+//      strcat(buf, " &");
+//#endif
       if(strlen(opt.view_html) >= 3) mysystem(buf);
     }  
   }
@@ -6053,7 +6076,25 @@ void Interpreter::interpretv(const char *command)
 void Interpreter::interpretw(const char *command)
 {
   if(command == NULL) return;
-  if(strncmp(command,"writeTextToFileAtClient(",24) == 0)
+  if(strncmp(command,"waitpid(",8) == 0)
+  {
+    int ret = -1;
+#ifdef PVUNIX
+    int status = 0;
+    int options = WNOHANG | WUNTRACED | WCONTINUED;
+    ret = waitpid(-1,&status,options);
+    if(opt.arg_debug) printf("errno=%d ret=%d status=%d\n", errno, ret, status);
+    if(errno == ECHILD) ret = 0; // errno=10 no child processes otherwise return pid number
+#else
+    ret = winWaitpid();
+    if(opt.arg_debug) printf("winWaitpid ret=%d\n", ret);
+#endif
+    char buf[80];
+    const int ID_MAINWINDOW = -4;
+    sprintf(buf,"text(%d,i\"waitpid_response=%d\")\n",ID_MAINWINDOW,ret);
+    tcp_send(s,buf,strlen(buf));    
+  }
+  else if(strncmp(command,"writeTextToFileAtClient(",24) == 0)
   {
     QString text;
     int len = 0;

@@ -293,7 +293,7 @@ QWebView *MyTextBrowser::createWindow(QWebPage::WebWindowType type)
     cmd += r.linkUrl().toString();;
     cmd += "\"";
 #ifdef PVUNIX
-    cmd += " &";
+    //cmd += " &";
     int ret = system(cmd.toUtf8());
 #endif
 #ifdef PVWIN32
@@ -466,12 +466,14 @@ void MyTextBrowser::slotLinkClicked(const QUrl &link)
     cmd += " ";
     url.replace(" ","%20");
     cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
+//#ifndef PVWIN32
+//    cmd +=  " &";
+//#endif
     mysystem(cmd.toUtf8());
   }
-  else if(url.startsWith("http://") && (
+  else if(
+         !url.startsWith("http://audio.") &&
+          url.startsWith("http://") && (
           url.endsWith(".mp3",  Qt::CaseInsensitive) || 
           url.endsWith(".ogg",  Qt::CaseInsensitive) || 
           url.endsWith(".m3u",  Qt::CaseInsensitive) || 
@@ -484,12 +486,14 @@ void MyTextBrowser::slotLinkClicked(const QUrl &link)
     cmd += " ";
     url.replace(" ","%20");
     cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
+//#ifndef PVWIN32
+//    cmd +=  " &";
+//#endif
     mysystem(cmd.toUtf8());
   }
-  else if(url.startsWith("http://") && (
+  else if(
+         !url.startsWith("http://video.") &&
+          url.startsWith("http://") && (
           url.endsWith(".mp4",  Qt::CaseInsensitive) || 
           url.endsWith(".mov",  Qt::CaseInsensitive) || 
           url.endsWith(".ogv",  Qt::CaseInsensitive) || 
@@ -499,9 +503,9 @@ void MyTextBrowser::slotLinkClicked(const QUrl &link)
     cmd += " ";
     url.replace(" ","%20");
     cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
+//#ifndef PVWIN32
+//    cmd +=  " &";
+//#endif
     mysystem(cmd.toUtf8());
   }
   else

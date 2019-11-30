@@ -374,7 +374,7 @@ void MainWindow::slotBackup()
 void MainWindow::about()
 {
   QMessageBox::about(this, tr("About pvdevelop"),
-            tr("(C) 2000-2011 Lehrig Software Engineering\n"
+            tr("(C) 2000-2019 Lehrig Software Engineering\n"
                "develop pvserver's easily\n"
                "IDE for editing and designing pvserver and data acquisition\n"
                "Have a lot of fun: Your's pvbrowser community\n"
@@ -879,7 +879,7 @@ bool MainWindow::saveFile(const QString &fileName)
 
   QApplication::restoreOverrideCursor();
   QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
-  fprintf(fout,"%s",editor->edit->toPlainText().toUtf8().constData());
+  fprintf(fout,"%s",editor->edit->toPlainText().toUtf8().data());
   QApplication::restoreOverrideCursor();
   fclose(fout);
 
@@ -992,6 +992,7 @@ void MainWindow::viewDesigner()
   //setWindowTitle(tr("%1[*] - %2").arg(shownName).arg(tr("pvdevelop")));
   setWindowTitle(tr("%1[*]").arg(shownName));
 
+  drawDrawWidgets(designer->root);
   if(opt_develop.arg_debug) printf("viewDesigner end\n");;
 }
 

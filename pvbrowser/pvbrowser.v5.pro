@@ -14,19 +14,6 @@ linux-g++-gles2 {
   DEFINES    += USE_MAEMO
   QT         -= opengl
 }  
-android-g++ {
-  DEFINES    += USE_ANDROID
-  DEFINES    += USE_MAEMO
-  QT         -= opengl
-  lessThan(QT_MAJOR_VERSION, 5) {
-  }else{
-    DEFINES      += NO_WEBKIT
-    QT           -= webkit
-    QT           -= webkitwidgets
-    HEADERS      -= dlgmybrowser.h
-    SOURCES      -= dlgmybrowser.cpp
-  }
-}  
 symbian:CONFIG += USE_SYMBIAN
 USE_SYMBIAN {
   DEFINES    += USE_SYMBIAN
@@ -49,10 +36,10 @@ HEADERS       = mainwindow.h \
                 interpreter.h \
                 pvserver.h \
                 MyWidgets.h \
-                MyTextBrowser_v5.h \
+                MyTextBrowser_v5pc.h \
+                mywebenginepage.h \
                 qimagewidget.h \
                 qdrawwidget.h \
-                pvglwidget.h \
                 qwtwidgets.h \
                 qwtplotwidget.h \
                 dlgtextbrowser.h \
@@ -67,14 +54,30 @@ SOURCES       = main.cpp \
                 tcputil.cpp \
                 interpreter.cpp \
                 MyWidgets.cpp \
-                MyTextBrowser_v5.cpp \
+                MyTextBrowser_v5pc.cpp \
+                mywebenginepage.cpp \
                 QDrawWidget.cpp \
                 QImageWidget.cpp \
-                pvglwidget.cpp \
-                gldecode.cpp \
                 qwtplotwidget.cpp \
                 dlgtextbrowser.cpp \
                 dlgmybrowser.cpp
+
+message($$QMAKE_HOST.arch)
+
+contains(QMAKE_HOST.arch, "i686") {
+message("i686 -> USE_OPEN_GL")
+DEFINES      += USE_OPEN_GL
+HEADERS      += pvglwidget.h
+SOURCES      += pvglwidget.cpp \
+                gldecode.cpp
+}
+contains(QMAKE_HOST.arch, "x86_64") {
+message("x86_64 -> USE_OPEN_GL")
+DEFINES      += USE_OPEN_GL
+HEADERS      += pvglwidget.h
+SOURCES      += pvglwidget.cpp \
+                gldecode.cpp
+}
 
 # FORMS        += dlgtextbrowser.ui
 #               dlgmybrowser.ui
@@ -145,6 +148,17 @@ LIBS += /usr/local/lib/vtk-5.10/libvtkmetaio.so
 LIBS += /usr/local/lib/vtk-5.10/libLSDyna.so
 }
 ### end USE_VTK ###############################################
+android-g++ {
+  DEFINES    += USE_ANDROID
+  DEFINES    += USE_MAEMO
+  QT         -= opengl
+  DEFINES    += NO_WEBKIT
+  QT         -= webkit
+  QT         -= webkitwidgets
+  QT         -= webenginewidgets
+  HEADERS    -= dlgmybrowser.h
+  SOURCES    -= dlgmybrowser.cpp
+}
 
 RESOURCES     = pvbrowser.qrc
 TARGET        = pvbrowser

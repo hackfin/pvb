@@ -78,6 +78,14 @@ QString l_status_about              = "Shows the aboutbox";
 
 QString l_print_header              = "Printed by pvbrowser at: ";
 
+const char *writeableLocation()
+{
+  static QString text;
+  //text = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+  text = getenv("HOME");
+  return text.toUtf8();
+}
+
 int wsa()
 {
 #ifdef PVWIN32
@@ -171,7 +179,8 @@ const char *inifile()
   }
 #ifdef PVUNIX
 #ifdef USE_ANDROID
-  strcpy(name,"/sdcard/pvbrowser/pvbrowser.ini"); // android
+  strcpy(name,writeableLocation());
+  strcat(name,"/pvbrowser/pvbrowser.ini"); // android
 #elif defined(USE_SYMBIAN)
   //SECUREID (magic number!)  0xE537072d
   //in symbian the normal dir is under \\Private\\<secureid>
@@ -189,7 +198,7 @@ const char *inifile()
   strcpy(name,"sys$login:pvbrowser.ini");
 #endif
 #ifdef PVWIN32
-  ExpandEnvironmentStrings("%USERPROFILE%",name,sizeof(name)-1);
+  ExpandEnvironmentStringsA("%USERPROFILE%",name,sizeof(name)-1);
   if(strcmp(name,"%USERPROFILE%") == 0) strcpy(name,"C:");
   strcat(name,"\\pvbrowser.ini");
 #endif
@@ -207,7 +216,8 @@ const char *passfile()
   }
 #ifdef PVUNIX
 #ifdef USE_ANDROID
-  strcpy(name,"/sdcard/pvbrowser/pvbrowserpass.ini"); // android
+  strcpy(name,writeableLocation());
+  strcat(name,"/pvbrowser/pvbrowserpass.ini"); // android
 #elif defined(USE_SYMBIAN)
   strcpy(name,"\\pvb\\pvbrowserpass.ini");
 #else
@@ -219,7 +229,7 @@ const char *passfile()
   strcpy(name,"sys$login:pvbrowserpass.ini");
 #endif
 #ifdef PVWIN32
-  ExpandEnvironmentStrings("%USERPROFILE%",name,sizeof(name)-1);
+  ExpandEnvironmentStringsA("%USERPROFILE%",name,sizeof(name)-1);
   if(strcmp(name,"%USERPROFILE%") == 0) strcpy(name,"C:");
   strcat(name,"\\pvbrowserpass.ini");
 #endif
@@ -291,6 +301,9 @@ void setDefaultOptions()
   getcwd(opt.initial_dir, sizeof(opt.initial_dir) - 1);
   opt.ffmpeg_available = 0;
   opt.ffplay_available = 0;
+  strcpy(opt.proxyadr,"localhost");
+  opt.proxyport = -1;
+  opt.replace_svg_symbol_by_g = 1;
 }
 
 const char *readIniFile()
@@ -385,7 +398,7 @@ int i;
 #endif
 #endif
 #ifdef PVWIN32
-          ExpandEnvironmentStrings(buf2,buf,sizeof(buf)-1);
+          ExpandEnvironmentStringsA(buf2,buf,sizeof(buf)-1);
           if(strstr(buf,"%") != NULL) QMessageBox::warning(NULL,buf,"readIniFile temp directory unknown: adjust pvbrowser.ini temp=");
           strcpy(buf2,buf);
 #endif
@@ -429,6 +442,20 @@ int i;
             system("rm ffmpeg.dat");
           }
 #endif
+        }
+        else if(strncmp(buf,"proxyadr=",9) == 0)
+        {
+          buf[MAXOPT - 1] = '\0';
+          strcpy(opt.proxyadr,&buf[9]);
+          char *cptr;
+          cptr = strchr(opt.proxyadr,'\n');
+          if(cptr != NULL) *cptr = '\0';
+          cptr = strchr(opt.proxyadr,' ');
+          if(cptr != NULL) *cptr = '\0';
+        }
+        else if(strncmp(buf,"proxyport=",10) == 0)
+        {
+          sscanf(buf,"proxyport=%d",&opt.proxyport);
         }
         else if(strncmp(buf,"toolbar=",8) == 0)
         {
@@ -541,7 +568,7 @@ int i;
         {
 #ifdef PVWIN32
           strcpy(buf2, buf);
-          ExpandEnvironmentStrings(buf2,buf,sizeof(buf)-1);
+          ExpandEnvironmentStringsA(buf2,buf,sizeof(buf)-1);
           if(strstr(buf,"%") != NULL) QMessageBox::warning(NULL,buf,"readIniFile customlogo directory unknown: adjust pvbrowser.ini temp=");
 #endif
           cptr = strchr(buf,'=');
@@ -578,8 +605,9 @@ int i;
     else // write a default initialisation file
     {
 #ifdef USE_ANDROID
-      mkdir("/sdcard/pvbrowser", 0x0fff); // android
-      mkdir("/sdcard/pvbrowser/temp", 0x0fff); // android             
+      chdir(writeableLocation());
+      mkdir("pvbrowser", 0x0fff); // android
+      mkdir("pvbrowser/temp", 0x0fff); // android             
 #endif
 #ifdef USE_SYMBIAN
       mkdir("\\pvb",S_IWUSR);
@@ -623,7 +651,7 @@ int i;
         fprintf(fp,"# temporary directory\n");
 #ifdef PVUNIX
 #ifdef USE_ANDROID
-        fprintf(fp,"temp=/sdcard/pvbrowser/temp\n");
+        fprintf(fp,"temp=%s/pvbrowser/temp\n", writeableLocation());
 #else
 #ifdef USE_SYMBIAN
         if(!mkdir("\\pvb\\temp",S_IWUSR))
@@ -703,13 +731,15 @@ int i;
         fprintf(fp,"pvb_widget_plugindir=\\sys\\bin\n");
 #elif  defined(USE_ANDROID)        
         fprintf(fp,"#pvb_com_plugin=/path/to/pvb_com_plugin.so\n");
-        fprintf(fp,"pvb_widget_plugindir=/sdcard/pvbrowser\n");
+        fprintf(fp,"pvb_widget_plugindir=%s/pvbrowser\n", writeableLocation());
 #else
         fprintf(fp,"#pvb_com_plugin=/path/to/pvb_com_plugin.so\n");
         fprintf(fp,"pvb_widget_plugindir=/opt/pvb/pvbrowser\n");
 #endif
 #endif
         fprintf(fp,"generate_cookie=pvb_generate_cookie\n");
+        fprintf(fp,"proxyadr=localhost      # ip adr of proxy that might encrypt the network traffic\n");
+        fprintf(fp,"proxyport=-1            # -1 if proxy is not used\n");
 
         fprintf(fp,"##################################################################\n");
         fprintf(fp,"#\n");
@@ -814,47 +844,47 @@ int i;
         fprintf(fp,"}\n");
         fprintf(fp,"#---------------------------------------\n");
         fprintf(fp,"spanish {\n");
-        fprintf(fp,"-file               = &Fichero\n");
-        fprintf(fp,"-options            = &Opciones\n");
-        fprintf(fp,"-new_window         = &Nueva Ventana\n");
+        fprintf(fp,"-file               = &Fichero\n");
+        fprintf(fp,"-options            = &Opciones\n");
+        fprintf(fp,"-new_window         = &Nueva Ventana\n");
         fprintf(fp,"-new_tab            = Nueva &Tab\n");
-        fprintf(fp,"-reconnect          = &Reconectar\n");
-        fprintf(fp,"-save_as_bmp        = &Guardar como BMP...\n");
-        fprintf(fp,"-log_as_bmp         = Log Metafiles como &BMP...\n");
-        fprintf(fp,"-log_as_pvm         = Log Metafiles como P&VM...\n");
-        fprintf(fp,"-print              = &Imprimir\n");
-        fprintf(fp,"-exit               = &Salir\n");
-        fprintf(fp,"-edit               = &Editar\n");
-        fprintf(fp,"-copy               = &Copiar\n");
-        fprintf(fp,"-copy_plus_title    = Co&piar + title\n");
-        fprintf(fp,"-view               = &Ver\n");
-        fprintf(fp,"-toolbar            = &Barra Herramientas\n");
-        fprintf(fp,"-statusbar          = &Barra Estado\n");
+        fprintf(fp,"-reconnect          = &Reconectar\n");
+        fprintf(fp,"-save_as_bmp        = &Guardar como BMP...\n");
+        fprintf(fp,"-log_as_bmp         = Log Metafiles como &BMP...\n");
+        fprintf(fp,"-log_as_pvm         = Log Metafiles como P&VM...\n");
+        fprintf(fp,"-print              = &Imprimir\n");
+        fprintf(fp,"-exit               = &Salir\n");
+        fprintf(fp,"-edit               = &Editar\n");
+        fprintf(fp,"-copy               = &Copiar\n");
+        fprintf(fp,"-copy_plus_title    = Co&piar + title\n");
+        fprintf(fp,"-view               = &Ver\n");
+        fprintf(fp,"-toolbar            = &Barra Herramientas\n");
+        fprintf(fp,"-statusbar          = &Barra Estado\n");
         fprintf(fp,"-toggle_full_screen = Pantalla Completa (On/Off)\n");
-        fprintf(fp,"-help               = &Ayuda\n");
-        fprintf(fp,"-booklet            = &Manuales\n");
-        fprintf(fp,"-manual             = &Documentación...\n");
-        fprintf(fp,"-about              = &Acerca de...\n");
-        fprintf(fp,"-recent_urls        = URLs Recientes\n");
-        fprintf(fp,"-status_connection_lost   = Conexión al Servidor perdida, CTRL-R para reconecta\n");
-        fprintf(fp,"-status_connected         = Conectado al Servidor\n");
-        fprintf(fp,"-status_reconnect   = Reconectar al Servidor\n");
+        fprintf(fp,"-help               = &Ayuda\n");
+        fprintf(fp,"-booklet            = &Manuales\n");
+        fprintf(fp,"-manual             = &Documentación...\n");
+        fprintf(fp,"-about              = &Acerca de...\n");
+        fprintf(fp,"-recent_urls        = URLs Recientes\n");
+        fprintf(fp,"-status_connection_lost   = Conexión al Servidor perdida, CTRL-R para reconecta\n");
+        fprintf(fp,"-status_connected         = Conectado al Servidor\n");
+        fprintf(fp,"-status_reconnect   = Reconectar al Servidor\n");
         fprintf(fp,"-status_could_not_connect = No se pudo conectar al Servidor, CTRL-R para reconectar\n");
-        fprintf(fp,"-status_options     = Ver/Cambiar las Opciones ProcessViewBrowser\n");
-        fprintf(fp,"-status_new_window  = Abrir nueva ventana de ProcessViewBrowser\n");
+        fprintf(fp,"-status_options     = Ver/Cambiar las Opciones ProcessViewBrowser\n");
+        fprintf(fp,"-status_new_window  = Abrir nueva ventana de ProcessViewBrowser\n");
         fprintf(fp,"-status_save_as_bmp = Guardar pantalla actual como fichero BMP\n");
-        fprintf(fp,"-status_log_as_bmp  = Logge QDrawWidgets como fichero BMP\n");
-        fprintf(fp,"-status_log_as_pvm  = Logge QDrawWidgets como fichero PVM\n");
-        fprintf(fp,"-status_print       = Imprimir la pantalla actual\n");
-        fprintf(fp,"-status_exit        = Salir de ProcessViewBrowser\n");
-        fprintf(fp,"-status_copy        = Copiar la pantalla al Portapapeles\n");
-        fprintf(fp,"-status_toolbar     = Barra de Herramientas (On/Off)\n");
-        fprintf(fp,"-status_statusbar   = Barra de Estado (On/Off)\n");
+        fprintf(fp,"-status_log_as_bmp  = Logge QDrawWidgets como fichero BMP\n");
+        fprintf(fp,"-status_log_as_pvm  = Logge QDrawWidgets como fichero PVM\n");
+        fprintf(fp,"-status_print       = Imprimir la pantalla actual\n");
+        fprintf(fp,"-status_exit        = Salir de ProcessViewBrowser\n");
+        fprintf(fp,"-status_copy        = Copiar la pantalla al Portapapeles\n");
+        fprintf(fp,"-status_toolbar     = Barra de Herramientas (On/Off)\n");
+        fprintf(fp,"-status_statusbar   = Barra de Estado (On/Off)\n");
         fprintf(fp,"-status_toggle_full_screen = Pantalla Completa (On/Off)\n");
-        fprintf(fp,"-status_booklet     = Mostrar ProcessViewServer Manual\n");
-        fprintf(fp,"-status_manual      = Mostrar ProcessViewServer Documentación\n");
-        fprintf(fp,"-status_about       = Acerca de...\n");
-        fprintf(fp,"-print_header       = Impreso desde ProcessViewBrowser\n");
+        fprintf(fp,"-status_booklet     = Mostrar ProcessViewServer Manual\n");
+        fprintf(fp,"-status_manual      = Mostrar ProcessViewServer Documentación\n");
+        fprintf(fp,"-status_about       = Acerca de...\n");
+        fprintf(fp,"-print_header       = Impreso desde ProcessViewBrowser\n");
         fprintf(fp,"}\n");
         fprintf(fp,"#---------------------------------------\n");
         fprintf(fp,"italian {\n");
@@ -963,23 +993,71 @@ int i;
   }
 }
 
+#ifdef PVUNIX
+static int rlexec(const char *command)
+{
+  char *buf;
+  char *arg[512];
+  int i,iarg,ret;
+
+  buf = new char [strlen(command)+1];
+  strcpy(buf,command);
+  iarg = 0;
+  i = 0;
+  while(buf[i] != '\0')
+  {
+    if(buf[i] == '\"')
+    {
+      i++;
+      arg[iarg++] = &buf[i];
+      while(buf[i] != '\"' && buf[i] != '\0') i++;
+      if(buf[i] == '\0') break;
+      buf[i] = '\0';
+    }
+    else if(buf[i] != ' ' || i == 0)
+    {
+      arg[iarg++] = &buf[i];
+      while(buf[i] != ' ' && buf[i] != '\0') i++;
+      if(buf[i] == '\0') break;
+      buf[i] = '\0';
+    }
+    i++;
+  }
+  arg[iarg] = NULL;
+
+  ret = execvp(arg[0],arg);
+  delete [] buf;
+  return ret;
+}
+#endif
+
+#ifdef PVWIN32
+static PROCESS_INFORMATION pi;
+int winWaitpid()
+{
+  int ret;
+  ret = WaitForSingleObject(pi.hProcess,0);
+  return ret;
+}
+#endif
+
 int mysystem(const char *command)
 {
 #ifdef PVWIN32
   int ret;
-  STARTUPINFO         si = { sizeof(si)};
-  PROCESS_INFORMATION pi;
+  STARTUPINFOA         si = { sizeof(si)};
+  //PROCESS_INFORMATION pi;
   char cmd[4096];
 
   if(strncmp(command,"start",5) == 0 || strncmp(command,"START",5) == 0)
   {
-    ExpandEnvironmentStrings(command,cmd,sizeof(cmd)-1);
+    ExpandEnvironmentStringsA(command,cmd,sizeof(cmd)-1);
     ret = system(cmd);
   }
   else
   {
-    ExpandEnvironmentStrings(command,cmd,sizeof(cmd)-1);
-    ret = (int) CreateProcess( NULL, cmd
+    ExpandEnvironmentStringsA(command,cmd,sizeof(cmd)-1);
+    ret = (int) CreateProcessA( NULL, cmd
                              , NULL, NULL
                              , FALSE, CREATE_NO_WINDOW
                              , NULL, NULL
@@ -988,6 +1066,16 @@ int mysystem(const char *command)
   return ret;
 #else
   if(opt.arg_debug) printf("run client command: %s\n", command);
-  return system(command);
+  //return system(command);
+  pid_t pid = fork();
+  if(pid == -1)
+  {
+    printf("Fork failed %s\n", command);
+  }
+  else if(pid == 0)
+  {
+    rlexec(command);
+  }
+  return pid;
 #endif
 }

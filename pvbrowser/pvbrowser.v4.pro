@@ -7,8 +7,8 @@ CONFIG       += warn_on release
 #DEFINES     += NO_QWT
 #mobile devices without opengl
 QT           += opengl
-lessThan(QT_MAJOR_VERSION, 5) {
-  QT         += xml svg webkit network
+lessThan(QT_VERSION, 5.0.0) {
+  QT         += printsupport xml svg webkit network
 }else{
   QT         += printsupport multimedia uitools webkitwidgets widgets xml svg webkit network printsupport
 }    
@@ -21,14 +21,11 @@ android-g++ {
   DEFINES    += USE_ANDROID
   DEFINES    += USE_MAEMO
   QT         -= opengl
-  lessThan(QT_MAJOR_VERSION, 5) {
-  }else{
-    DEFINES      += NO_WEBKIT
-    QT           -= webkit
-    QT           -= webkitwidgets
-    HEADERS      -= dlgmybrowser.h
-    SOURCES      -= dlgmybrowser.cpp
-  }
+  DEFINES    += NO_WEBKIT
+  QT         -= webkit
+  QT         -= webkitwidgets
+  HEADERS    -= dlgmybrowser.h
+  SOURCES    -= dlgmybrowser.cpp
 }  
 symbian:CONFIG += USE_SYMBIAN
 USE_SYMBIAN {
@@ -55,7 +52,6 @@ HEADERS       = mainwindow.h \
                 MyTextBrowser_v4.h \
                 qimagewidget.h \
                 qdrawwidget.h \
-                pvglwidget.h \
                 qwtwidgets.h \
                 qwtplotwidget.h \
                 dlgtextbrowser.h \
@@ -73,11 +69,24 @@ SOURCES       = main.cpp \
                 MyTextBrowser_v4.cpp \
                 QDrawWidget.cpp \
                 QImageWidget.cpp \
-                pvglwidget.cpp \
-                gldecode.cpp \
                 qwtplotwidget.cpp \
                 dlgtextbrowser.cpp \
                 dlgmybrowser.cpp
+
+contains(QMAKE_HOST.arch, "i586") {
+message("i586 -> USE_OPEN_GL")
+DEFINES      += USE_OPEN_GL
+HEADERS      += pvglwidget.h
+SOURCES      += pvglwidget.cpp \
+                gldecode.cpp
+}
+contains(QMAKE_HOST.arch, "x86_64") {
+message("x86_64 -> USE_OPEN_GL")
+DEFINES      += USE_OPEN_GL
+HEADERS      += pvglwidget.h
+SOURCES      += pvglwidget.cpp \
+                gldecode.cpp
+}
 
 # FORMS        += dlgtextbrowser.ui
 #               dlgmybrowser.ui

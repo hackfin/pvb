@@ -337,7 +337,8 @@ public:
     void setTableLabel(int row, int col, QString text);
     void copyToClipboard(int title);
     void saveTextfile(const char *filename=NULL);
-    int wrap,read_only,updates,autoresize;
+    void clear();
+    int wrap,read_only,updates,autoresize,is_editable;
 
 public slots:
     void slotRowClicked(int section);
@@ -345,6 +346,7 @@ public slots:
     void slotClicked( int row, int col);
     void slotCurrentChanged( int row, int col, int oldrow, int oldcol);
     void slotValueChanged(int row, int col);
+    void slotActivated(QModelIndex index);
 private:
     void mousePressEvent(QMouseEvent *event);
     virtual void enterEvent(QEvent *event);

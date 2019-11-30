@@ -36,6 +36,7 @@
 #endif
 #include "tcputil.h"
 #include "MyTextBrowser_v5.h"
+#include "mywebenginepage.h"
 
 extern OPT opt;
 
@@ -117,9 +118,16 @@ MyTextBrowser::MyTextBrowser(int *sock, int ident, QWidget *parent, const char *
   id = ident;
   
   if(opt.arg_debug) printf("MyTextBrowser()\n");
+#ifdef MY_NO_WEBKIT
+  printf("IS QTextBrowser\n");
+#else
+  printf("IS QWebEngineView\n");
+#endif
+#ifndef USE_ANDROID
   MyWebEnginePage *p;
   p = new MyWebEnginePage(s, id, this);
   setPage(p);
+#endif
   
   homeIsSet = 0;
   factor = 1.0f;
@@ -128,7 +136,7 @@ MyTextBrowser::MyTextBrowser(int *sock, int ident, QWidget *parent, const char *
   xOldScroll = yOldScroll = 0;
 #ifdef MY_NO_WEBKIT
   setOpenLinks(false);
-  connect(this, SIGNAL(anchorClicked(const QUrl &)), SLOT(slotLinkClicked(const QUrl &)));
+  //connect(this, SIGNAL(anchorClicked(const QUrl &)), SLOT(slotLinkClicked(const QUrl &)));
   //connect(this, SIGNAL(urlChanged(const QUrl &)), SLOT(slotUrlChanged(const QUrl &)));
 #else
   //v5diff  page()->setLinkDelegationPolicy(QWebEnginePage::DelegateAllLinks);
@@ -140,14 +148,14 @@ MyTextBrowser::MyTextBrowser(int *sock, int ident, QWidget *parent, const char *
   if(opt.enable_webkit_plugins)
   {
     if(opt.arg_debug) printf("enable_webkit_plugins\n");
-    //v5diff settings()->setAttribute(QWebEngineSettings::PluginsEnabled, true);
-    //v5diff settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, true);
+    settings()->setAttribute(QWebEngineSettings::PluginsEnabled, true);     // reenabled 15 Okt 2017
+    settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, true);  // reenabled 15 Okt 2017
   }
   else
   {
     if(opt.arg_debug) printf("do not enable_webkit_plugins\n");
-    //v5diff settings()->setAttribute(QWebEngineSettings::PluginsEnabled, false);
-    //v5diff settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, false);
+    settings()->setAttribute(QWebEngineSettings::PluginsEnabled, false);    // reenabled 15 Okt 2017
+    settings()->setAttribute(QWebEngineSettings::JavascriptEnabled, false); // reenabled 15 Okt 2017
   }
 #ifdef USE_MAEMO  
   QString    txt("data:text/css;charset=utf-8;base64,");
@@ -304,7 +312,7 @@ QWebEngineView *MyTextBrowser::createWindow(QWebEnginePage::WebWindowType type)
     cmd += r.linkUrl().toString();;
     cmd += "\"";
 #ifdef PVUNIX
-    cmd += " &";
+    //cmd += " &";
     int ret = system(cmd.toUtf8());
 #endif
 #ifdef PVWIN32
@@ -456,98 +464,7 @@ void MyTextBrowser::htmlOrSvgDump(const char *filename)
   myDummyFilename = filename;
   MyWebEnginePage *p = (MyWebEnginePage *) page();
   if(p != NULL) p->toHtml(myDummyToHtml);
-/*v5diff  
-  QWebFrame *f = p->currentFrame();
-  if(f == NULL) return;
-
-  FILE *fout = fopen(filename,"w");
-  if(fout == NULL)
-  {
-    printf("could not write %s\n", filename);
-    return;
-  }
-  QString xml = f->toHtml();
-  fputs(xml.toUtf8(), fout);
-  fclose(fout);
-*/  
 #endif  
-}
-
-void MyTextBrowser::slotLinkClicked(const QUrl &link)
-{
-  char buf[MAX_PRINTF_LENGTH];
-  QString url;
-  int i;
-
-  url = link.toString();
-
-  // replace "href=\"//awite://" by "href=/"
-  while(1)
-  {
-    i = url.indexOf("awite://");
-    if(i < 0) break;
-    url = url.replace(i,8,"/");
-    if(opt.arg_debug) printf("MyTextBrowser::slotLinkClicked::link clicked = %s\n", (const char *) url.toUtf8());
-  }
-
-  if(opt.arg_debug) printf("slotLinkClicked(%s)\n", (const char *) url.toUtf8());
-  if(url.startsWith("http://") && (url.endsWith(".pdf") || url.endsWith(".PDF")))
-  {
-    QString cmd = opt.view_pdf;
-    cmd += " ";
-    url.replace(" ","%20");
-    cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
-    mysystem(cmd.toUtf8());
-  }
-  else if(url.startsWith("http://") && (
-          url.endsWith(".mp3",  Qt::CaseInsensitive) || 
-          url.endsWith(".ogg",  Qt::CaseInsensitive) || 
-          url.endsWith(".m3u",  Qt::CaseInsensitive) || 
-          url.endsWith(".asx",  Qt::CaseInsensitive) || 
-          url.contains(".pls?", Qt::CaseInsensitive) ||
-          url.contains("mp3e",  Qt::CaseInsensitive) ||
-          url.startsWith("http://www.youtube.com/watch?") ))
-  {
-    QString cmd = opt.view_audio;
-    cmd += " ";
-    url.replace(" ","%20");
-    cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
-    mysystem(cmd.toUtf8());
-  }
-  else if(url.startsWith("http://") && (
-          url.endsWith(".mp4",  Qt::CaseInsensitive) || 
-          url.endsWith(".mov",  Qt::CaseInsensitive) || 
-          url.endsWith(".ogv",  Qt::CaseInsensitive) || 
-          url.endsWith(".avi",  Qt::CaseInsensitive) ))
-  {
-    QString cmd = opt.view_video;
-    cmd += " ";
-    url.replace(" ","%20");
-    cmd += url;
-#ifndef PVWIN32
-    cmd +=  " &";
-#endif
-    mysystem(cmd.toUtf8());
-  }
-  else
-  {
-    if(url.length()+40 > MAX_PRINTF_LENGTH) return;
-    sprintf(buf,"text(%d,\"%s\")\n", id,decode(url));
-    tcp_send(s,buf,strlen(buf));
-#ifdef MY_NO_WEBKIT
-    if     (url.startsWith("http:"))  setSource(QUrl(url));
-    else if(url.startsWith("https:")) setSource(QUrl(url));
-    else if(!url.contains("://"))     setSource(QUrl(url));
-#else    
-    load(link);
-#endif    
-  }  
 }
 
 void MyTextBrowser::slotUrlChanged(const QUrl &link)
@@ -639,14 +556,19 @@ void MyTextBrowser::setSOURCE(QString &temp, QString &text)
   // google does not allow Qt to access local storage
   // see: http://www.techjini.com/blog/2009/01/10/android-tip-1-contentprovider-accessing-local-file-system-from-webview-showing-image-in-webview-using-content/
   //      http://groups.google.com/group/android-developers/msg/45977f54cf4aa592
-  printf("setSOURCE text=%s\n", (const char *) text.toUtf8());
+  //printf("setSOURCE text=%s\n", (const char *) text.toUtf8());
   if(strstr(text.toUtf8(),"://") == NULL)
   {
     struct stat sb;
     if(stat(text.toUtf8(), &sb) < 0) return;
-    char buf[sb.st_size+1];
+    //char buf[sb.st_size+1]; // MSVC can't do this
+    char *buf = new char[sb.st_size+1];
     FILE *fin = fopen(text.toUtf8(),"r");
-    if(fin == NULL) return;
+    if(fin == NULL)
+    {
+      delete [] buf;
+      return;
+    }
     fread(buf,1,sb.st_size,fin);
     buf[sb.st_size] = '\0';
     fclose(fin);
@@ -655,6 +577,7 @@ void MyTextBrowser::setSOURCE(QString &temp, QString &text)
     QWebSettings::clearMemoryCaches();
 #endif
     setHtml(QString::fromUtf8(buf),url);
+    delete [] buf;
   }
   else
   {
@@ -705,31 +628,4 @@ void MyTextBrowser::slotPRINTER()
   } 
 }
 
-
-//###################################################################################
-#ifdef MY_NO_WEBKIT
-#else
-MyWebEnginePage::MyWebEnginePage(int *sock, int ident, MyTextBrowser *myView, QObject *parent)
-                :QWebEnginePage(parent)
-{
-  if(opt.arg_debug) printf("MyWebEnginePage()\n");
-  s = sock;
-  id = ident;
-  my_view = myView;
-}
-
-MyWebEnginePage::~MyWebEnginePage()
-{
-  if(opt.arg_debug) printf("~MyWebEnginePage()\n");
-}
-
-bool MyWebEnginePage::acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame)
-{
-  QString surl = url.toString(); 
-  if(opt.arg_debug) printf("acceptNavigationRequest isMainFrame=%d type=%d url=%s\n", 
-                                                    isMainFrame,   type,   (const char *) surl.toUtf8());
-  if(type == 0) my_view->slotLinkClicked(url);
-  return false;
-}
-#endif
 
