@@ -24,6 +24,7 @@ HEADERS       = mainwindow.h \
                 designer.h \
                 syntax.h \
                 cutil.h \
+                pname_mangler.h \
                 dlgopt.h \
                 dlgnewprj.h \
                 dlgsearchreplace.h \
@@ -67,6 +68,8 @@ SOURCES       = main.cpp \
                 designer.cpp \
                 syntax.cpp \
                 cutil.cpp \
+                parser.cpp \
+                pname_mangler.cpp \
                 dlgopt.cpp \
                 dlgnewprj.cpp \
                 dlgsearchreplace.cpp \

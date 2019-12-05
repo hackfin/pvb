@@ -23,6 +23,7 @@
 #include "mainwindow.h"
 #include "opt.h"
 #include "cutil.h"
+#include "pname_mangler.h"
 #include "designer.h"
 #include "widgetgenerator.h"
 
@@ -382,6 +383,7 @@ int main(int argc, char *argv[])
     getargs(argc,argv);
     setDefaultOptions();
     readIniFile();
+    mangler_init();
 
     Q_INIT_RESOURCE(pvdevelop);
 
