@@ -352,19 +352,19 @@ int create_lcdnumber(C *c, const char *id,
 #else
 	lcditem->setDigitCount(c->params->ival[0]);
 #endif
-	if (contains(mode,",Hex"))
+	if (contains(mode,"Hex"))
 		lcditem->setMode(QLCDNumber::Hex);
-	else if (contains(mode,",Dec"))
+	else if (contains(mode,"Dec"))
 		lcditem->setMode(QLCDNumber::Dec);
-	else if (contains(mode,",Oct"))
+	else if (contains(mode,"Oct"))
 		lcditem->setMode(QLCDNumber::Oct);
-	else if (contains(mode,",Bin"))
+	else if (contains(mode,"Bin"))
 		lcditem->setMode(QLCDNumber::Bin);
-	else if (contains(mode,",Outline"))
+	else if (contains(mode,"Outline"))
 		lcditem->setSegmentStyle(QLCDNumber::Outline);
-	else if (contains(mode,",Filled"))
+	else if (contains(mode,"Filled"))
 		lcditem->setSegmentStyle(QLCDNumber::Filled);
-	else if (contains(mode,",Flat"))
+	else if (contains(mode,"Flat"))
 		lcditem->setSegmentStyle(QLCDNumber::Flat);
 
 	*itemtype = TQLCDNumber;
@@ -1163,58 +1163,7 @@ int PvCppParser::parseLine()
 				}
 				break;
 			case S_FINISH:
-				{
-					int i, j, c;
-					parameters.parent_id = NULL;
-					parameters.this_id = NULL;
-					parameters.cval = NULL;
-					// XXX printf("-----------------------\n");
-					j = 0; c = 0;
-
-
-					if (argc > 2) {
-						parameters.this_id = argv[2];
-						// Third arg could be parent id or text
-						parameters.parent_id = argv[3];
-						parameters.text = argv[3];
-					}
-
-					for (i = 3; i < argc; i++) {
-						switch (argt[i]) {
-							case T_NUM:
-								parameters.ival[j++] = atoi(argv[i]);
-								break;
-							case T_IDENTIFIER:
-								switch (c) {
-									case 0:
-										parameters.cval = argv[i];
-										break;
-									case 1:
-										// parameters.text = argv[i];
-										break;
-									// default:
-									// 	printf("EXCEED IDENTIFIER RANGE\n");
-								}
-								c++;
-								break;
-							case T_STRING:
-								switch (c) {
-									case 0:
-										parameters.text = argv[i];
-										break;
-									case 1:
-										break;
-									// default:
-										// printf("EXCEED STRING RANGE\n");
-								}
-								c++;
-								break;
-							default:
-								printf("\tUNDEFINED, type %d\n", argt[i]);
-						}
-						// printf("\tArg[%d]: '%s', type %d\n", i, argv[i], argt[i]);
-					}
-				}
+				
 				return argc;
 			case S_ERROR:
 				fprintf(stderr, "Tokenize error:\n%s", line);
@@ -1230,6 +1179,62 @@ int PvCppParser::parseLine()
 	return 0;
 }
 
+int PvCppParser::convertArgs(int mode)
+{
+	int i, j, c;
+	parameters.parent_id = NULL;
+	parameters.this_id = NULL;
+	parameters.cval = NULL;
+	j = 0; c = 0;
+
+	// XXX printf("-----------------------\n");
+
+	if (argc > 2) {
+		parameters.this_id = argv[2];
+		// Third arg could be parent id or text
+		parameters.parent_id = argv[3]; // mode 1 (constructor)
+		parameters.text = argv[3]; // mode 0 (parameter)
+	}
+
+	for (i = 3 + mode; i < argc; i++) {
+		switch (argt[i]) {
+			case T_NUM:
+				parameters.ival[j++] = atoi(argv[i]);
+				break;
+			case T_IDENTIFIER:
+				switch (c) {
+					case 0:
+						parameters.cval = argv[i];
+						break;
+					case 1:
+						// parameters.text = argv[i];
+						break;
+					// default:
+					// 	printf("EXCEED IDENTIFIER RANGE\n");
+				}
+				c++;
+				break;
+			case T_STRING:
+				switch (c) {
+					case 0:
+						parameters.text = argv[i];
+						break;
+					case 1:
+						break;
+					// default:
+						// printf("EXCEED STRING RANGE\n");
+				}
+				c++;
+				break;
+			default:
+				printf("\tUNDEFINED, type %d\n", argt[i]);
+		}
+		// printf("\tArg[%d]: '%s', type %d\n", i, argv[i], argt[i]);
+	}
+	return 0;
+}
+
+
 int PvCppParser::readWidget(QWidget *root)
 {
 	int ret;
@@ -1237,6 +1242,8 @@ int PvCppParser::readWidget(QWidget *root)
 
 	QString pid;
 	QString id;
+
+	convertArgs(1);
 
 	// The case for pvDownloadFile
 	if (!parameters.parent_id) {
@@ -1624,6 +1631,8 @@ int PvCppParser::readParameters(QWidget *widget, int widget_type)
 {
 	C &c = widget_context;
 
+	convertArgs(0);
+
 	const struct param_lut_s *walk = param_lookup;
 	while (walk->identifier) {
 		if (strcmp(argv[0], walk->identifier) == 0) {
@@ -1640,7 +1649,7 @@ int PvCppParser::readParameters(QWidget *widget, int widget_type)
 				 case TQGrid:
 				 	break;
 				 default:
-					widget->setWhatsThis(c.whatsthislist.at(iitem-1));
+					widget->setWhatsThis(c.whatsthislist.at(iitem));
 				}
 			}
 

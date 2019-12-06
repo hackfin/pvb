@@ -831,6 +831,12 @@ void generateInitialSlots(int imask)
   fprintf(fout,"//extern rlModbusClient     modbus;  //Change if applicable\n");
   fprintf(fout,"//extern rlSiemensTCPClient siemensTCP;\n");
   fprintf(fout,"//extern rlPPIClient        ppi;\n");
+
+#ifdef HAVE_NETPP_SUPPORT
+  fprintf(fout,"\n");
+  fprintf(fout,"//#include \"netpp_helper.h\"\n");
+#endif
+
   fprintf(fout,"\n");
   fprintf(fout,"typedef struct // (todo: define your data structure here)\n");
   fprintf(fout,"{\n");
@@ -859,6 +865,11 @@ void generateInitialSlots(int imask)
     fprintf(fout,"  return 0;\n");
   }
   fprintf(fout,"}\n");
+
+#ifdef HAVE_NETPP_SUPPORT
+  fprintf(fout,"#include \"netpp_slots.h\"\n");
+
+#else
   fprintf(fout,"\n");
   fprintf(fout,"static int slotNullEvent(PARAM *p, DATA *d)\n");
   fprintf(fout,"{\n");
@@ -1220,8 +1231,10 @@ void generateInitialSlots(int imask)
     fprintf(fout,"  return 0;\n");
   }
   fprintf(fout,"}\n");
+#endif
 
   fclose(fout);
+
 
   //#### Python #####################################################
   if(opt_develop.script == PV_PYTHON)

@@ -84,6 +84,7 @@ class PvCppParser {
 	QWidget *findChild(const char *id);
 
 	int parseLine();
+	int convertArgs(int mode);
 	int readWidget(QWidget *root);
 	int readParameters(QWidget *item, int itemtype);
 

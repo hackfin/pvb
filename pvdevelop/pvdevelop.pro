@@ -13,6 +13,7 @@ INCLUDEPATH  += ../qwt/src
 LIBS         += ../qwt/lib/libqwt.a
 DEFINES      += PVDEVELOP
 DEFINES      += NO_WEBKIT
+DEFINES      += HAVE_NETPP_SUPPORT
 #DEFINES     += NO_QWT
 macx:DEFINES += PVMAC
 macx:DEFINES += unix
