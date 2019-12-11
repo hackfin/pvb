@@ -438,13 +438,13 @@ static int generateDefineMaskWidget(FILE *fout, QWidget *widget, const char *tab
 
 	if(opt_develop.script == PV_LUA)
 	{
-		strcpy(prefix,"  pv.");
+		strcpy(prefix,"\tpv.");
 		strcpy(midfix,"pv.");
 		strcpy(postfix,"");
 	}
 	else
 	{
-		strcpy(prefix,"  ");
+		strcpy(prefix,"\t");
 		strcpy(midfix,"");
 		strcpy(postfix,";");
 	}

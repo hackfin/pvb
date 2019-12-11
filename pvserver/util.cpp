@@ -314,7 +314,7 @@ static const char *pvFilename(const char *path)
 
   if(strchr(path,'/')  != NULL) { if((cptr = strrchr(path,'/'))  != NULL) { cptr++; return cptr; } }
   if(strchr(path,'\\') != NULL) { if((cptr = strrchr(path,'\\')) != NULL) { cptr++; return cptr; } }
-  if(strchr(path,']')  != NULL) { if((cptr = strrchr(path,']'))  != NULL) { cptr++; return cptr; } }
+  //if(strchr(path,']')  != NULL) { if((cptr = strrchr(path,']'))  != NULL) { cptr++; return cptr; } }
   return path;
 }
 

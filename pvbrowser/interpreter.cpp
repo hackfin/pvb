@@ -1306,6 +1306,7 @@ void Interpreter::interpretf(const char *command)
     struct tm remote;
     int ret;
     char buf[80];
+	QString filename;
 
     memset(&remote,0,sizeof(remote));
     sscanf(command,"fileCache(%d,%d,%d,%d,%d,%d,%d,%d,%d"
@@ -1320,9 +1321,11 @@ void Interpreter::interpretf(const char *command)
       ,&remote.tm_isdst);
     get_text(command,text);
     timet = mktime(&remote);
-    ret = stat(text.toUtf8(),&statbuf);
+	filename = temp + text;
+    ret = stat(filename.toUtf8(),&statbuf);
     if(ret < 0) // file does not exist
     {
+	printf("File '%s' not found\n", (const char *) filename.toUtf8());
       strcpy(buf,"cache(0)\n");   // file was not cached
       tcp_send(s,buf,strlen(buf));
     }

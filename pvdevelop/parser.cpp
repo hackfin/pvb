@@ -87,6 +87,10 @@ static int isHorizontal(const char *cval)
 	return 0;
 }
 
+/** XXX Deprecated. We should rather maintain an index table to
+ * retrieve added widgets.
+ */
+
 QWidget *PvCppParser::findChild(const char *id)
 {
 	QWidget *ret;
@@ -196,8 +200,7 @@ int create_vbox(C *c, const char *id,
 	if (c->editlayout == NULL) return -1;
 
 	QString txt = QString::fromUtf8(c->line);
-	txt.remove(" ");
-	txt.remove("\n");
+	txt.remove(" "); txt.remove("\t"); txt.remove("\n"); // XXX
 	c->editlayout->uidlg->textEditConstructors->append(txt);
 	if		 (strcmp(c->argv[1], "0") == 0)
 		*item = (QWidget *) new QVBoxLayout();
@@ -205,6 +208,7 @@ int create_vbox(C *c, const char *id,
 		*item = (QWidget *) new QVBoxLayout();
 	else
 		*item = (QWidget *) new QVBoxLayout(c->pw);
+
 	*itemtype = TQVbox;
 	return 0;
 }
@@ -215,8 +219,7 @@ int create_hbox(C *c, const char *id,
 	if (c->editlayout == NULL) return -1;
 
 	QString txt = QString::fromUtf8(c->line);
-	txt.remove(" ");
-	txt.remove("\n");
+	txt.remove(" "); txt.remove("\t"); txt.remove("\n");
 	c->editlayout->uidlg->textEditConstructors->append(txt);
 	if		 (strcmp(c->argv[1], "0") == 0)
 		*item = (QWidget *) new QHBoxLayout();
@@ -224,6 +227,7 @@ int create_hbox(C *c, const char *id,
 		*item = (QWidget *) new QHBoxLayout();
 	else
 		*item = (QWidget *) new QHBoxLayout(c->pw);
+
 	*itemtype = TQHbox;
 	return 0;
 }
@@ -234,8 +238,7 @@ int create_lgrid(C *c, const char *id,
 	if (c->editlayout == NULL) return -1;
 
 	QString txt = QString::fromUtf8(c->line);
-	txt.remove(" ");
-	txt.remove("\n");
+	txt.remove(" "); txt.remove("\t"); txt.remove("\n");
 	c->editlayout->uidlg->textEditConstructors->append(txt);
 	if		 (strcmp(c->argv[1], "0") == 0)
 		*item = (QWidget *) new QGridLayout();
@@ -243,6 +246,7 @@ int create_lgrid(C *c, const char *id,
 		*item = (QWidget *) new QGridLayout();
 	else
 		*item = (QWidget *) new QGridLayout(c->pw);
+
 	*itemtype = TQGrid;
 	return 0;
 }
@@ -377,12 +381,11 @@ int create_lcdnumber(C *c, const char *id,
 int create_slider(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	int ori = c->params->ival[4];
-	if(ori == -1)
-	{
-		if (isHorizontal(c->params->cval)) ori = Qt::Horizontal;
-		else					   ori = Qt::Vertical;
-	}
+	int ori;
+	if (isHorizontal(c->argv[8]))
+		ori = Qt::Horizontal;
+	else
+		ori = Qt::Vertical;
 
 	QWidget *q = (QWidget *) new MySlider(c->socket,
 		0, c->params->ival[0], c->params->ival[1], c->params->ival[2],
@@ -399,11 +402,12 @@ int create_buttongrp(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
 
-	int ori = c->params->ival[1];
-	if (ori == -1) {
-		if (isHorizontal(c->params->cval)) ori = Qt::Horizontal;
-		else                       ori = Qt::Vertical;
-	}
+	int ori;
+	if (isHorizontal(c->params->cval))
+		ori = Qt::Horizontal;
+	else
+		ori = Qt::Vertical;
+
 	QWidget *q = (QWidget *) new MyButtonGroup(c->socket, 0,
 		c->params->ival[0], (Qt::Orientation) ori,
 		c->argv[6], c->pw, id);
@@ -482,7 +486,7 @@ int create_draw(C *c, const char *id,
 	QWidget *q = (QWidget *) new QDrawWidget(c->pw, id);
 	*itemtype = TQDraw;
 	q->setStatusTip("TQDraw:");
-	QString fname = c->whatsthislist.at(c->iitem);
+	QString fname = c->whatsthislist.at(c->iitem + 1);
 	fname.replace('\\', "");
 	q->setWhatsThis(fname);
 	*item = q;
@@ -554,12 +558,13 @@ int create_group(C *c, const char *id,
 {
 
 	int columns = c->params->ival[0];
-	int ori = c->params->ival[1];
-	if(ori == -1)
-	{
-		if(isHorizontal(c->params->cval)) ori = Qt::Horizontal;
-		else									 ori = Qt::Vertical;
-	}
+	int ori;
+
+	if(isHorizontal(c->argv[5]))
+		ori = Qt::Horizontal;
+	else
+		ori = Qt::Vertical;
+
 	QWidget *q = (QWidget *) new MyGroupBox(c->socket, 0, columns,
 		(Qt::Orientation) ori, c->argv[6], c->pw);
 	q->setObjectName(id);
@@ -584,7 +589,8 @@ int create_listbox(C *c, const char *id,
 int create_table(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	QWidget *q = (QWidget *) new MyTable(c->socket, 0, c->params->ival[0], c->params->ival[1], c->pw);
+	QWidget *q = (QWidget *) new MyTable(c->socket, 0,
+		c->params->ival[0], c->params->ival[1], c->pw);
 	q->setObjectName(id);
 	*itemtype = TQTable;
 	q->setStatusTip("TQTable:");
@@ -595,7 +601,9 @@ int create_table(C *c, const char *id,
 int create_spinbox(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	QWidget *q = (QWidget *) new MySpinBox(c->socket, 0, c->params->ival[0], c->params->ival[1], c->params->ival[2], c->pw);
+	int *i = c->params->ival;
+	QWidget *q = (QWidget *) new MySpinBox(c->socket, 0,
+		i[0], i[1], i[2], c->pw);
 	q->setObjectName(id);
 	*itemtype = TQSpinBox;
 	q->setStatusTip("TQSpinBox:");
@@ -606,8 +614,9 @@ int create_spinbox(C *c, const char *id,
 int create_dial(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	QWidget *q = (QWidget *) new MyDial(c->socket,
-		0, c->params->ival[0], c->params->ival[1], c->params->ival[2], c->params->ival[3], c->pw);
+	int *i = c->params->ival;
+	QWidget *q = (QWidget *) new MyDial(c->socket, 0,
+		i[0], i[1], i[2], i[3], c->pw);
 	q->setObjectName(id);
 	*itemtype = TQDial;
 	q->setStatusTip("TQDial:");
@@ -618,11 +627,13 @@ int create_dial(C *c, const char *id,
 int create_progress(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	int ori = c->params->ival[1];
-	if (ori == -1) {
-		if (isHorizontal(c->params->cval)) ori = Qt::Horizontal;
-		else                       ori = Qt::Vertical;
-	}
+	int ori;
+
+	if (isHorizontal(c->argv[5]))
+		ori = Qt::Horizontal;
+	else
+		ori = Qt::Vertical;
+
 	QWidget *q = (QWidget *) new MyProgressBar(c->socket, 0, c->params->ival[0], (Qt::Orientation) ori, c->pw);
 	q->setObjectName(id);
 	*itemtype = TQProgressBar;
@@ -712,10 +723,15 @@ int create_qwtscale(C *c, const char *id,
 {
 	int pos = c->params->ival[0];
 
-	if      (contains(c->params->cval,"ScaleLeft") == 0)   pos = PV::ScaleLeft;
-	else if (contains(c->params->cval,"ScaleRight") == 0)  pos = PV::ScaleRight;
-	else if (contains(c->params->cval,"ScaleTop") == 0)    pos = PV::ScaleTop;
-	else if (contains(c->params->cval,"ScaleBottom") == 0) pos = PV::ScaleBottom;
+	if      (contains(c->params->cval,"ScaleLeft") == 0)
+		pos = PV::ScaleLeft;
+	else if (contains(c->params->cval,"ScaleRight") == 0)
+		pos = PV::ScaleRight;
+	else if (contains(c->params->cval,"ScaleTop") == 0)
+		pos = PV::ScaleTop;
+	else if (contains(c->params->cval,"ScaleBottom") == 0)
+		pos = PV::ScaleBottom;
+
 	QWidget *q = (QWidget *) new MyQwtScale(c->socket,
 		0,(QwtScaleDraw::Alignment) pos, c->pw);
 	q->setObjectName(id);
@@ -772,10 +788,10 @@ int create_wheel(C *c, const char *id,
 int create_qwtslider(C *c, const char *id,
 	QWidget **item, int *itemtype)
 {
-	QWidget *q = (QWidget *) new MyQwtWheel(c->socket, 0, c->pw);
+	QWidget *q = (QWidget *) new MyQwtSlider(c->socket, 0, c->pw);
 	q->setObjectName(id);
-	*itemtype = TQwtWheel;
-	q->setStatusTip("TQwtWheel:");
+	*itemtype = TQwtSlider;
+	q->setStatusTip("TQwtSlider:");
 	*item = q;
 	return 0;
 }
@@ -798,7 +814,6 @@ int create_compass(C *c, const char *id,
 	q->setObjectName(id);
 	*itemtype = TQwtCompass;
 	q->setStatusTip("TQwtCompass:");
-
 	*item = q;
 	return 0;
 }
@@ -865,7 +880,7 @@ int create_custom(C *c, const char *id,
 	QLabel *xitem = new QLabel(q);
 	xitem->setGeometry(5, 2, 4096, 50);
 
-#warning "FIXME"
+#warning "FIXME: create custom text not parsed"
 	#if 0
 	const char *cptr = strchr(line,'\"');
 	if(cptr != NULL)
@@ -1002,6 +1017,7 @@ int PvCppParser::parseLine()
 					case '\t':
 					case ' ':
 						break;
+					case 'q':
 					case 'p':
 						line_state = S_FUNCNAME;
 						argt[argc] = T_IDENTIFIER;
@@ -1612,8 +1628,7 @@ int PvCppParser::set_parameter(int method, QWidget *item, int itemtype)
 		case SET_ADDWIDGET_OR_LAYOUT:
 			if (widget_context.editlayout != NULL) {
 				QString txt = QString::fromUtf8(line);
-				txt.remove(" ");
-				txt.remove("\n");
+				txt.remove(" "); txt.remove("\t"); txt.remove("\n");
 				widget_context.editlayout->uidlg->textEditDef->append(txt);
 			}
 		case SET_GLBEGIN:
@@ -1755,6 +1770,19 @@ int PvCppParser::parse(QWidget *root)
 									"Item '%s' not created, line %d\n",
 									argv[0],
 									count);
+							} else
+							if (ret == 0) {
+								printf("Unexpected identifier in "
+								"constructor state: '%s'"
+								"\nTry parameter mode...\n", argv[0]);
+								state = S_PARAM;
+								// We reuse the previous item type.
+								// This is very ugly, but we assume
+								// that this is only within the layout
+								// construction context.
+								// We can NOT use findChild() on a
+								// layout entity.
+								readParameters(item, itemtype);
 							}
 						} else {
 							readParameters(item, itemtype);
