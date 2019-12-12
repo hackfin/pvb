@@ -350,7 +350,8 @@ int create_lcdnumber(C *c, const char *id,
 	QWidget *q = (QWidget *) new QLCDNumber(c->pw);
 	QLCDNumber *lcditem = (QLCDNumber *) q;
 	q->setObjectName(id);
-	const char *mode = c->argv[5];
+	const char *style = c->argv[5];
+	const char *mode = c->argv[6];
 #if QT_VERSION < 0x050000			 
 	lcditem->setNumDigits(c->params->ival[0]);
 #else
@@ -364,11 +365,12 @@ int create_lcdnumber(C *c, const char *id,
 		lcditem->setMode(QLCDNumber::Oct);
 	else if (contains(mode,"Bin"))
 		lcditem->setMode(QLCDNumber::Bin);
-	else if (contains(mode,"Outline"))
+
+	if (contains(style,"Outline"))
 		lcditem->setSegmentStyle(QLCDNumber::Outline);
-	else if (contains(mode,"Filled"))
+	else if (contains(style,"Filled"))
 		lcditem->setSegmentStyle(QLCDNumber::Filled);
-	else if (contains(mode,"Flat"))
+	else if (contains(style,"Flat"))
 		lcditem->setSegmentStyle(QLCDNumber::Flat);
 
 	*itemtype = TQLCDNumber;
@@ -1531,7 +1533,7 @@ int PvCppParser::set_parameter(int method, QWidget *item, int itemtype)
 			break;
 		case SET_FONT:
 		{
-			QFont font(qtext, ival[0]);
+			QFont font(argv[3], ival[0]);
 
 			font.setBold( (ival[1] ? true : false) );
 			font.setItalic( (ival[2] ? true : false) );
